@@ -1,0 +1,152 @@
+---
+title: "NOAA Storm data analysis"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Synopsis
+
+This work presents an analysis of the NOAA dataset and answers the following questions
+
+1. The type of events which were most harmful to the health of a population in the United   States
+
+2. The type of events which had the greatest impact on the economy in the United States
+
+
+ Weather events cause problems for both public health and economy. Many severe events  result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.
+
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database is used in this study. This database tracks the characteristics of major storms and weather events across United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+The analysis reveals that tornadoes are most harmful w.r.t. polulation health. Flashfloods have been the top cause for damage in property accounting for billions of dollars. 
+
+## Data Processing 
+
+### downloading data
+
+```{r}
+#loading the required packages
+library(dplyr)
+library(R.utils)
+library(ggplot2)
+#downloading the storm data
+url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(url, "StormData.csv.bz2")
+
+bunzip2("StormData.csv.bz2", "StormData.csv")
+
+#reading data
+data <- read.csv("StormData.csv")
+dim(data)
+
+#to view the contents
+
+head(data)
+```
+Analyzing which types of events are most harmful with respect to population health
+
+To visualize the health impact, the sum of deaths and the sum of injuries for each event type (EVTYPE) are to be calculated
+
+```{r}
+
+  sum_deaths <- data %>% 
+   select(EVTYPE, FATALITIES) %>% 
+   group_by(EVTYPE) %>% 
+   summarise(sum_deaths = sum(FATALITIES)) %>% 
+   arrange(desc (sum_deaths))
+
+head(sum_deaths)
+```
+
+Calculation of sum of injuries  w.r.t. event type
+
+```{r}
+sum_injuries <- data %>% 
+select(EVTYPE, INJURIES) %>% 
+group_by(EVTYPE) %>% 
+summarise(sum_injuries = sum(INJURIES)) %>% 
+arrange(desc(sum_injuries))
+
+# view the contents of sum_injuries
+head(sum_injuries)
+```
+### Across the United States, the types of events which had the greatest economic consequences
+
+Economic impact can be derived from the losses incurred in property damage (PROPDMG) and crop damage (CROPDMG). The code for calcuating total damage caused by event type is detailed below. This section details the code for converting the representation of damage to numerical values. The documentation for this conversion can be found at this link 
+
+```{r}
+data.damage <- data %>% 
+   
+select(EVTYPE, PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP)
+S <- sort(unique(as.character(data.damage$PROPDMGEXP)))
+M <- c(0,0,0,1,10,10,10,10,10,10,10,10,10,10^9,10^2,10^2,10^3,10^6,10^6)
+MM <- data.frame(S, M)
+dim(MM)
+
+#calculating damage to property and crops
+data.damage$Prop.M <- MM$M[match(data.damage$PROPDMGEXP, MM$S)]
+data.damage$Crop.M <- MM$M[match(data.damage$CROPDMGEXP, MM$S)]
+head(data.damage)
+
+
+```
+
+```{r}
+# ADDING TOTAL DAMAGE COLUMN BY SUMMING UP THE COST OF DAMAGES
+data.damage <- data.damage %>% 
+mutate(PROPDMG = PROPDMG*Prop.M) %>% 
+mutate(CROPDMG = CROPDMG*Crop.M) %>% 
+mutate(TOTAL.DMG = PROPDMG+CROPDMG)
+head(data.damage)
+
+#consolidating cost of both types of damage 
+data.wholedamage <- data.damage %>% 
+   group_by(EVTYPE) %>% 
+   summarize(TOTAL.DMG.EVTYPE = sum(TOTAL.DMG))%>% 
+   arrange(-TOTAL.DMG.EVTYPE)
+
+head(data.wholedamage)
+```
+## Results
+
+The top events causing highest deaths 
+
+```{r}
+#plotting deaths by event type
+library(ggplot2)
+z <- ggplot(sum_deaths[1:10,], aes(x=reorder(EVTYPE, desc(sum_deaths)), y=sum_deaths))+geom_bar(stat="identity",fill="yellow") +ggtitle("Events causing highest deaths") +labs(x="EVENT TYPE", y="Total Deaths")+ theme(axis.text.x = element_text(angle=90))
+z
+```
+
+The top events causing highest injuries
+
+```{r}
+#plotting injuries
+y <- ggplot(sum_injuries[1:10,], aes(x=reorder(EVTYPE, (sum_injuries)), y=sum_injuries))+geom_bar(stat="identity",fill="yellow") + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))+ggtitle("Events causing Highest Injuries") +labs(x="EVENT TYPE", y="Total Injuries")
+y
+```
+#### It can be inferred that tornado is more harmful on population health
+
+### Event having greatest economic consequence
+
+The top events with the highest total economic damages (both property and crop combined) are shown graphically
+
+```{r}
+
+x <- ggplot(data.wholedamage[1:10,], aes(x=reorder(EVTYPE, -TOTAL.DMG.EVTYPE), y=TOTAL.DMG.EVTYPE))+geom_bar(stat="identity") + theme(axis.text.x = element_text(angle=90, vjust=0.5, hjust=1))+ggtitle("Events with Highest Economic Impact") +labs(x="EVENT TYPE", y="Total Economic Impact ($USD)")
+x
+```
+
+
+
+
+
+
+
+
+
+
+
+It can be inferred that flood has the greatest economic impact in terms of dollars. 
+
