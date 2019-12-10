@@ -1,4 +1,4 @@
-# NOOA stormdata analysis
+# NOAA stormdata analysis
 
 This work presents an analysis of the NOAA dataset and answers the following questions
 
